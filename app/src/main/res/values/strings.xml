@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Popular Movies</string>
+    <string name="movies_popular">Popular Movies</string>
+    <string name="movies_top_rated">Top Rated Movies</string>
+    <string name="menu_error">Menu error occurred</string>
+    <string name="connection_error">Movie results unavailable at this time.</string>
+    <string name="poster_desc">Poster</string>
+</resources>
