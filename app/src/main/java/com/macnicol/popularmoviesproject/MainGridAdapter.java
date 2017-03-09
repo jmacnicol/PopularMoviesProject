@@ -45,6 +45,9 @@ class MainGridAdapter extends RecyclerView.Adapter<MainGridAdapter.ViewHolder> {
 
     @Override
     public int getItemCount() {
+        if (mDataArray == null) {
+            return 0;
+        }
         return mDataArray.size();
     }
 
