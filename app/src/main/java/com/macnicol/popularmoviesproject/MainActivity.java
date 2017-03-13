@@ -111,6 +111,9 @@ public class MainActivity
     @Override
     public Loader<MovieItem[]> onCreateLoader(int id, final Bundle args) {
         return new AsyncTaskLoader<MovieItem[]>(this) {
+
+            MovieItem[] mMovieItemArray;
+
             @Override
             protected void onStartLoading() {
                 super.onStartLoading();
@@ -118,8 +121,13 @@ public class MainActivity
                 if (args == null) {
                     return;
                 }
-                mProgBar.setVisibility(View.VISIBLE);
-                onForceLoad();
+
+                if (mMovieItemArray != null) {
+                    deliverResult(mMovieItemArray);
+                } else {
+                    mProgBar.setVisibility(View.VISIBLE);
+                    onForceLoad();
+                }
             }
 
             @Override
@@ -134,6 +142,12 @@ public class MainActivity
                     e.getMessage();
                     return null;
                 }
+            }
+
+            @Override
+            public void deliverResult(MovieItem[] data) {
+                mMovieItemArray = data;
+                super.deliverResult(data);
             }
         };
     }
