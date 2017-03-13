@@ -2,6 +2,9 @@ package com.macnicol.popularmoviesproject;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.AsyncTaskLoader;
+import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -13,14 +16,19 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 
 import static com.macnicol.popularmoviesproject.Constants.API_KEY;
 
-public class MainActivity extends AppCompatActivity implements MainGridAdapter.ItemClickListener {
+public class MainActivity
+        extends AppCompatActivity
+        implements MainGridAdapter.ItemClickListener, LoaderManager.LoaderCallbacks<MovieItem[]> {
     //---key for savedInstanceState bundle
     private final static String DATA_MOVIE_ITEMS = "DATA_MOVIE_ITEMS";
+    //---unique identifier for loader
+    private static final int MOVIE_ITEMS_LOADER = 22;
     //---class views
     private ArrayList<MovieItem> mMovieItems;
     private ProgressBar mProgBar;
@@ -38,15 +46,20 @@ public class MainActivity extends AppCompatActivity implements MainGridAdapter.I
         mProgBar = (ProgressBar) findViewById(R.id.progbar_main);
         mErrorView = (TextView) findViewById(R.id.text_error);
 
-        //---Check internet connectivity before making an API call
+        loadMovies();
+    }
+
+    public void loadMovies() {
+        Bundle movieBundle = new Bundle();
+        movieBundle.putString(DATA_MOVIE_ITEMS, mMovieUrl);
+
         if (MovieUtils.isOnline(this)) {
-            //---restore data (if saved prior to state loss), else get new data
-            if (savedInstanceState != null) {
-                mMovieItems = savedInstanceState.getParcelableArrayList(DATA_MOVIE_ITEMS);
-                initGridProperties(mMovieItems);
+            LoaderManager loaderManager = getSupportLoaderManager();
+            Loader<MovieItem[]> loader = loaderManager.getLoader(MOVIE_ITEMS_LOADER);
+            if (loader == null) {
+                loaderManager.initLoader(MOVIE_ITEMS_LOADER, movieBundle, this);
             } else {
-                //---Call out to class containing async task
-                new FetchMovieTask(mMovieUrl, new FetchMovieTaskCompleteListener()).execute();
+                loaderManager.restartLoader(MOVIE_ITEMS_LOADER, movieBundle, this);
             }
         } else {
             mErrorView.setVisibility(View.VISIBLE);
@@ -75,12 +88,12 @@ public class MainActivity extends AppCompatActivity implements MainGridAdapter.I
             case R.id.action_sort_popular:
                 mMovieUrl = mPopularMovies;
                 setTitle(getString(R.string.movies_popular));
-                new FetchMovieTask(mMovieUrl, new FetchMovieTaskCompleteListener()).execute();
+                loadMovies();
                 return true;
             case R.id.action_sort_rated:
                 mMovieUrl = mTopRatedMovies;
                 setTitle(getString(R.string.movies_top_rated));
-                new FetchMovieTask(mMovieUrl, new FetchMovieTaskCompleteListener()).execute();
+                loadMovies();
                 return true;
             default:
                 Toast.makeText(this, getString(R.string.menu_error), Toast.LENGTH_SHORT).show();
@@ -95,26 +108,53 @@ public class MainActivity extends AppCompatActivity implements MainGridAdapter.I
         super.onSaveInstanceState(outState);
     }
 
-    //---Listener to asynchronously update UI
-    public class FetchMovieTaskCompleteListener implements AsyncTaskCompleteListener {
-        @Override
-        public void onFetchMovieTaskPreExecute() {
-            mProgBar.setVisibility(View.VISIBLE);
-        }
+    @Override
+    public Loader<MovieItem[]> onCreateLoader(int id, final Bundle args) {
+        return new AsyncTaskLoader<MovieItem[]>(this) {
+            @Override
+            protected void onStartLoading() {
+                super.onStartLoading();
 
-        @Override
-        public void onFetchMovieTaskComplete(MovieItem[] movieItems) {
-            if (movieItems != null) {
-                //---Hide error and initialize main views when data is received
-                mMovieItems = new ArrayList<>(Arrays.asList(movieItems));
-                initGridProperties(mMovieItems);
-                mErrorView.setVisibility(View.INVISIBLE);
-                mProgBar.setVisibility(View.INVISIBLE);
-            } else {
-                //---error view
-                mErrorView.setVisibility(View.VISIBLE);
+                if (args == null) {
+                    return;
+                }
+                mProgBar.setVisibility(View.VISIBLE);
+                onForceLoad();
             }
+
+            @Override
+            public MovieItem[] loadInBackground() {
+                URL movieDataUrl = MovieUtils.buildMovieUrl(mMovieUrl);
+
+                try {
+                    String jsonMovieResponse = MovieUtils.getResponseFromHttpUrl(movieDataUrl);
+                    //---Process the JSON data and serialize the results
+                    return MovieUtils.processJsonData(jsonMovieResponse);
+                } catch (Exception e) {
+                    e.getMessage();
+                    return null;
+                }
+            }
+        };
+    }
+
+    @Override
+    public void onLoadFinished(Loader<MovieItem[]> loader, MovieItem[] data) {
+        if (data != null) {
+            //---Hide error and initialize main views when data is received
+            mMovieItems = new ArrayList<>(Arrays.asList(data));
+            initGridProperties(mMovieItems);
+            mErrorView.setVisibility(View.INVISIBLE);
+            mProgBar.setVisibility(View.INVISIBLE);
+        } else {
+            //---error view
+            mErrorView.setVisibility(View.VISIBLE);
         }
+    }
+
+    @Override
+    public void onLoaderReset(Loader<MovieItem[]> loader) {
+        //---stub method
     }
 
     //---Helper function implemented to handle grid, adapter, data
