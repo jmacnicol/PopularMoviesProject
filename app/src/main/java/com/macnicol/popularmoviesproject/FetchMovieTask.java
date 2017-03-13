@@ -11,7 +11,7 @@ class FetchMovieTask extends AsyncTask<String, Void, MovieItem[]> {
     private String mMovieUrl;
     private AsyncTaskCompleteListener mTaskCompleteListener;
 
-    public FetchMovieTask(String movieUrl, AsyncTaskCompleteListener listener) {
+    FetchMovieTask(String movieUrl, AsyncTaskCompleteListener listener) {
         mMovieUrl = movieUrl;
         mTaskCompleteListener = listener;
     }
