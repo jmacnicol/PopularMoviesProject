@@ -5,4 +5,9 @@
     <string name="menu_error">Menu error occurred</string>
     <string name="connection_error">Movie results unavailable at this time.</string>
     <string name="poster_desc">Poster</string>
+
+    <!-- SharedPreferences values -->
+    <string name="shared_preferences_key" translatable="false">shared_preferences</string>
+    <string name="default_movie_url_key" translatable="false">default_movie_url_key</string>
+    <string name="default_title_key" translatable="false">default_title_key</string>
 </resources>

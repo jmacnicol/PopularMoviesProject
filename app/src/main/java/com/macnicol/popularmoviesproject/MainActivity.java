@@ -1,6 +1,7 @@
 package com.macnicol.popularmoviesproject;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.AsyncTaskLoader;
@@ -27,6 +28,8 @@ public class MainActivity
         implements MainGridAdapter.ItemClickListener, LoaderManager.LoaderCallbacks<MovieItem[]> {
     //---key for savedInstanceState bundle
     private final static String DATA_MOVIE_ITEMS = "DATA_MOVIE_ITEMS";
+    private final static String STATE_MOVIE_URL = "STATE_MOVIE_URL";
+    private final static String STATE_TITLE_BAR = "STATE_TITLE_BAR";
     //---unique identifier for loader
     private static final int MOVIE_ITEMS_LOADER = 22;
     //---class views
@@ -36,7 +39,8 @@ public class MainActivity
     //---URLs endpoints
     private static final String mPopularMovies = Constants.BASE_URL + Constants.SORT_SELECTION_POPULAR + Constants.KEY_PROMPT + API_KEY;
     private static final String mTopRatedMovies = Constants.BASE_URL + Constants.SORT_SELECTION_TOP_RATED + Constants.KEY_PROMPT + API_KEY;
-    private String mMovieUrl = mPopularMovies;
+    private String mMovieUrl;
+    private String mDefaultTitle;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,14 +49,62 @@ public class MainActivity
         //---init views
         mProgBar = (ProgressBar) findViewById(R.id.progbar_main);
         mErrorView = (TextView) findViewById(R.id.text_error);
+        //---default title string
+        mDefaultTitle = getString(R.string.movies_popular);
+        //---state preservation
+        if (savedInstanceState != null) {
+            mMovieUrl = savedInstanceState.getString(STATE_MOVIE_URL, mPopularMovies);
+            setTitle(savedInstanceState.getString(STATE_TITLE_BAR, mDefaultTitle));
+        } else {
+            restoreSortingSelection();
+        }
 
-        loadMovies();
+        loadMovies(mMovieUrl);
     }
 
-    public void loadMovies() {
-        Bundle movieBundle = new Bundle();
-        movieBundle.putString(DATA_MOVIE_ITEMS, mMovieUrl);
+    @Override
+    protected void onPause() {
+        super.onPause();
 
+        saveSortingSelection();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        restoreSortingSelection();
+    }
+
+    //---Store the current URL and title text in SharedPreferences
+    public void saveSortingSelection() {
+        SharedPreferences.Editor editor = getSharedPreferences(getString(R.string.shared_preferences_key), MODE_PRIVATE).edit();
+        editor.putString(STATE_MOVIE_URL, mMovieUrl)
+                .putString(STATE_TITLE_BAR, getTitle().toString())
+                .apply();
+    }
+
+    //---Retrieve last saved URL and title text from SharedPreferenes, then clear preferences after use
+    public void restoreSortingSelection() {
+        SharedPreferences preferences = getSharedPreferences(getString(R.string.shared_preferences_key), MODE_PRIVATE);
+        if (preferences != null) {
+            mMovieUrl = preferences.getString(STATE_MOVIE_URL, mPopularMovies);
+            setTitle(preferences.getString(STATE_TITLE_BAR, mDefaultTitle));
+
+            SharedPreferences.Editor editor = preferences.edit();
+            editor.clear().apply();
+        } else {
+            //---If no values exist in SharedPreferences, use "Popular Movies" URL and title text as defaults
+            mMovieUrl = mPopularMovies;
+            setTitle(mDefaultTitle);
+        }
+    }
+
+    public void loadMovies(String movieUrl) {
+        Bundle movieBundle = new Bundle();
+        movieBundle.putString(DATA_MOVIE_ITEMS, movieUrl);
+
+        //---Moving away from AsyncTask and using a loader instead
         if (MovieUtils.isOnline(this)) {
             LoaderManager loaderManager = getSupportLoaderManager();
             Loader<MovieItem[]> loader = loaderManager.getLoader(MOVIE_ITEMS_LOADER);
@@ -88,12 +140,12 @@ public class MainActivity
             case R.id.action_sort_popular:
                 mMovieUrl = mPopularMovies;
                 setTitle(getString(R.string.movies_popular));
-                loadMovies();
+                loadMovies(mMovieUrl);
                 return true;
             case R.id.action_sort_rated:
                 mMovieUrl = mTopRatedMovies;
                 setTitle(getString(R.string.movies_top_rated));
-                loadMovies();
+                loadMovies(mMovieUrl);
                 return true;
             default:
                 Toast.makeText(this, getString(R.string.menu_error), Toast.LENGTH_SHORT).show();
@@ -105,6 +157,8 @@ public class MainActivity
     protected void onSaveInstanceState(Bundle outState) {
         //---Save data if state loss occurs (i.e. device configuration change, etc)
         outState.putParcelableArrayList(DATA_MOVIE_ITEMS, mMovieItems);
+        outState.putString(STATE_MOVIE_URL, mMovieUrl);
+        outState.putString(STATE_TITLE_BAR, getTitle().toString());
         super.onSaveInstanceState(outState);
     }
 
